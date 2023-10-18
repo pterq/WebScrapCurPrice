@@ -49,7 +49,7 @@ startSeconds = 20
 fileStartTime = datetime.datetime.now()
 
 # Create download dictionary if it doesnt exist
-main_download_directory = "./Kursy walut"
+main_download_directory = "../Kursy walut"
 # main_download_directory = "./test"
 os.makedirs(main_download_directory, exist_ok=True)
 
