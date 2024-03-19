@@ -2,8 +2,10 @@ import requests
 import bs4
 import time
 import datetime
-import backoff
 import os
+
+file_name = "../Kursy walut.csv"
+startSeconds = 20
 
 
 def site_data_refresh_sync_start_countdown(seconds_when_to_start):
@@ -30,130 +32,133 @@ def site_data_refresh_sync_start_countdown(seconds_when_to_start):
             time.sleep(0.5)
 
 
-def get_number_of_reads_in_file(file_name):
-    f = open(f'{file_name}', "r")
-    data = f.read()
-    number_of_connection_errors = data.count("Connection error x5")
-    number_of_reads = int((data.count("\n") - 4 - number_of_connection_errors) / 5)
-    f.close()
-    return number_of_reads
-    # include cases when there is X number of "Connection error x5"
+
+def try_open_file(f_name, mode):
+    modes = ['r', 'r+', 'w', 'w+', 'a', 'a+', ]
+
+    if mode not in modes:
+        print("Wrong mode")
+        exit(1)
+        return 1
+
+    try:
+        file_handle = open(f'{f_name}', mode)
+
+        # Add first line to CSV file if file is empty
+        if os.path.getsize(f_name) == 0:
+            file_handle.write("Date;Time;EUR sell;EUR buy;USD sell;USD buy;CHF buy;CHF sell;GBP buy;GBP sell\n")
+
+        return file_handle
+
+    except FileNotFoundError:
+        print(f'Couldnt open file: {f_name} | {FileNotFoundError}')
+        exit(2)
+        return 2
 
 
-def generate_file_name_from_time(current_time, directory):
-    new_file_name = f'{directory}/Kursy walut {current_time.year}-{current_time.month}-{current_time.day}.txt'
-    return new_file_name
 
 
-startSeconds = 20
-fileStartTime = datetime.datetime.now()
+start_time = datetime.datetime.now() # used to determine whether a new day started
 
-# Create download dictionary if it doesnt exist
-main_download_directory = "../Kursy walut"
-# main_download_directory = "./test"
-os.makedirs(main_download_directory, exist_ok=True)
-
-
-# fileName = f'./{main_download_directory}/Kursy walut {startTime.year}-{startTime.month}-{startTime.day}_test.txt'
-fileName = generate_file_name_from_time(fileStartTime, main_download_directory)
-file = open(f'{fileName}', "a")
-print(f'Opened file "{fileName}"')
-
-# Check if file exists and has something in it
-if os.path.getsize(fileName) == 0:
-    file.write(f'#======================\n{fileStartTime.year}-{fileStartTime.month}-{fileStartTime.day}\n')
-    file.write("# 1.EUR, 2.USD, 3.CHF, 4.GBP\n")
-    file.write("Sell Price, Buy Price\n")
-
+# Open CSV file to append and/or create file
+file = try_open_file(file_name, "a")
+print(f'Opened file "{file_name}"')
 file.close()
 
-numberOfReads = get_number_of_reads_in_file(fileName)
-print(f'Number of reads already in the file: {numberOfReads}')
-numberOfReads += 1
-
-# print("Start at: XX:XX:" + str(startSeconds))
+print(("Date;Time;EUR sell;EUR buy;USD sell;USD buy;CHF buy;CHF sell;GBP buy;GBP sell\n"))
 print(f'Starts at: XX:XX:{startSeconds}')
 
-#for a in range(numberOfReads, 24 * 60):
-while numberOfReads <= 24 * 60:
+
+num_of_today_reads = 1
+while num_of_today_reads <= 24 * 60:
+    file = try_open_file(file_name, "a")
+
+    # Wait for 20 seconds past a minute to start
     site_data_refresh_sync_start_countdown(startSeconds)
-    file = open(f'{fileName}', "a")
 
-    nowTime = datetime.datetime.now()
-    # print("Time: ", nowTime.year, nowTime.month, nowTime.day, nowTime.hour, nowTime.minute, nowTime.second)
+    # store current time and date
+    now_time = datetime.datetime.now()
 
-    def backoff_hdlr(details):
-        print("Connection error x5")
-        # close the file when there is no connection to url
-        file.write("Connection error x5\n")
-        file.close()
-        raise SystemExit(0)
-
-    # decorator for any exception that shows up when there is no internet connection, it will try to reconnect 5 times
-    @backoff.on_exception(
-        backoff.expo,
-        requests.exceptions.RequestException,
-        on_giveup=backoff_hdlr,
-        max_tries=5,
-    )
-    def make_request():
-        return requests.get("https://www.santander.pl/klient-indywidualny/karty-platnosci-i-kantor/kantor-santander")
-
-    print("\nNum: " + str(numberOfReads) + "\nTime: " + time.asctime())
-
-    # Processing request
-    print("Sell     Buy      Spread")
-    req = bs4.BeautifulSoup(make_request().text, "html.parser")
+    # Download request and process data
+    req = bs4.BeautifulSoup(requests.get("https://www.santander.pl/klient-indywidualny/karty-platnosci-i-kantor/kantor-santander").text, "html.parser")
     sellPrice = req.find_all("div", {"class": "exchange_office__table-value js-exchange_office__rate-sell-value"})
     buyPrice = req.find_all("div", {"class": "exchange_office__table-value js-exchange_office__rate-buy-value"})
 
-    # Saving exchange rates to file
-    file.write(f'{str(numberOfReads)} {time.strftime("%H:%M:%S")}\n')
-    for i in range(4):
-        file.write(f'{sellPrice[i].text.strip()} {buyPrice[i].text.strip()}\n')
-        sellPrice[i] = float(sellPrice[i].text.strip().replace(",", "."))
-        buyPrice[i] = float(buyPrice[i].text.strip().replace(",", "."))
-        print(f'{"{:.4f}".format(sellPrice[i])} | {"{:.4f}".format(buyPrice[i])} | {"{:.4f}".format((buyPrice[i] - sellPrice[i]))} | ')
+    # holds full currency read from link site
+    entry = []
 
+    #  Add date to record entry
+    todays_month = str(now_time.month)
+    todays_day = str(now_time.day)
+
+    # add "0" before month or date if month or date is a one digit long
+    if len(todays_month) == 1:
+        todays_month = f'0{todays_month}'
+    if len(todays_day) == 1:
+        todays_day = f'0{todays_day}'
+
+    todays_date = f'{now_time.year}-{todays_month}-{todays_day}'
+    entry.append(todays_date)
+
+    # Add time to record entry
+    entry.append(time.strftime("%H:%M:%S"))
+
+    # Add currency sell and buy prices to record entry
+    for i in range(4):
+        entry.append(sellPrice[i].text.strip())
+        entry.append(buyPrice[i].text.strip())
+
+    # Save exchange rates to file
+    save = ""
+    for element in entry:
+        save += f'{element};'
+
+    save += "\n"
+    file.write(save)
     file.close()
 
-    # Detecting if a new day started, if yes then change fileName to a new one and reset loop counter
-    isSameDay = fileStartTime.year == nowTime.year and fileStartTime.month == nowTime.month and fileStartTime.day == nowTime.day
-    if isSameDay:
-        print(f'>Not a new day: {fileStartTime.day}-{fileStartTime.month}-{fileStartTime.year} == {nowTime.day}-{nowTime.month}-{nowTime.year}')
-    else:
-        print(f'>NEW DAY!: {fileStartTime.day}-{fileStartTime.month}-{fileStartTime.year} -> {nowTime.day}-{nowTime.month}-{nowTime.year}')
-        fileStartTime = nowTime
-        fileName = generate_file_name_from_time(fileStartTime, main_download_directory)
-        numberOfReads = 0
-        # print(f'New file name: {fileName}')
-        # print(f'{fileStartTime.day}-{fileStartTime.month}-{fileStartTime.year} == {nowTime.day}-{nowTime.month}-{nowTime.year}')
+    # Print data in console
+    print("-------------------------------------------------------------------------------------------------------------------------")
+    print(f'| Record entry: {entry} |')
 
-        #!================================
-        file = open(f'{fileName}', "a")
-        print(f'Opened file "{fileName}"')
-        file.write(f'#======================\n{fileStartTime.year}-{fileStartTime.month}-{fileStartTime.day}\n')
-        file.write("# 1.EUR, 2.USD, 3.CHF, 4.GBP\n")
-        file.write("Sell Price, Buy Price\n")
-        file.close()
+    #  print date and time
+    print(f'| #: {num_of_today_reads} | {entry[0]} | {entry[1]} |')
+
+    print("Name  Sell     Buy      Spread")
+
+    # print currencies sell buy rates and their spread
+    currency_names = ['EUR', 'USD', 'CHF', 'GBP']
+    for i in range(2, 9, 2):
+        print(f'{currency_names[int(i/2)-1]} | {entry[i]} | {entry[i+1]} | {"{:.4f}".format(float(entry[i+1].replace(",", ".")) - float(entry[i].replace(",", ".")))}')
+
+
+    # Check if there is a new day
+    is_new_day = start_time.year != now_time.year and start_time.month != now_time.month and start_time.day != now_time.day
+
+    if is_new_day:
+        print(f'>NEW DAY!: {start_time.day}-{start_time.month}-{start_time.year} -> {now_time.day}-{now_time.month}-{now_time.year}')
+        # set current date to new day's date
+        start_time = now_time
+
+        # restart main while loop
+        num_of_today_reads = 0
+
+
 
     # wait 1 minute for changes on the website
     time.sleep(0.5)
-    nowTime = datetime.datetime.now()
-    while nowTime.second != 20:
-        nowTime = datetime.datetime.now()
+    now_time = datetime.datetime.now()
+    while now_time.second != 20:
+        now_time = datetime.datetime.now()
         # print(nowTime.second)
         time.sleep(0.5)
 
-    numberOfReads += 1
+
+    num_of_today_reads += 1
 
 file.close()
-print(f'File {fileName} is closed')
+print(f'File {file_name} is closed')
 
 
 
-# Napisać wyświetlanie zmiany kursów w porównaniu do ostatniego zczytania [kurs(+/-?) kurs(+/-?)]
 
-# Przypisać do numberOfRead kolejność występowania na podstawie czasu ?
-
-# numberOfReads przy tworzeniu nowego pliku podczas zmiany dnia powinno wpisywać na początku 1 do pliku a wpisało 3(teraz wpisze 1?) # zrobione
