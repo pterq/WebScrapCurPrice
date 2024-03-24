@@ -76,13 +76,27 @@ while num_of_today_reads <= 24 * 60:
     # Wait for 20 seconds past a minute to start
     site_data_refresh_sync_start_countdown(startSeconds)
 
-    # store current time and date
-    now_time = datetime.datetime.now()
-
     # Download request and process data
-    req = bs4.BeautifulSoup(requests.get("https://www.santander.pl/klient-indywidualny/karty-platnosci-i-kantor/kantor-santander").text, "html.parser")
+    url = "https://www.santander.pl/klient-indywidualny/karty-platnosci-i-kantor/kantor-santander"
+
+
+    def get_bs4_request(f_url):
+        try:
+            bs4_request =  bs4.BeautifulSoup(requests.get(f_url).text, "html.parser")
+        except:
+            print("\nConnectionError")
+            time.sleep(1)
+            bs4_request = get_bs4_request(f_url)
+
+        return bs4_request
+
+
+    req = get_bs4_request(url)
     sellPrice = req.find_all("div", {"class": "exchange_office__table-value js-exchange_office__rate-sell-value"})
     buyPrice = req.find_all("div", {"class": "exchange_office__table-value js-exchange_office__rate-buy-value"})
+
+    # store current time and date
+    now_time = datetime.datetime.now()
 
     # holds full currency read from link site
     entry = []
@@ -145,7 +159,7 @@ while num_of_today_reads <= 24 * 60:
 
 
 
-    # wait 1 minute for changes on the website
+    # wait till its 20 seconds past every minute for changes on the website
     time.sleep(0.5)
     now_time = datetime.datetime.now()
     while now_time.second != 20:
