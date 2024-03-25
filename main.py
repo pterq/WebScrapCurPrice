@@ -68,13 +68,15 @@ file.close()
 print(("Date;Time;EUR sell;EUR buy;USD sell;USD buy;CHF buy;CHF sell;GBP buy;GBP sell\n"))
 print(f'Starts at: XX:XX:{startSeconds}')
 
+site_data_refresh_sync_start_countdown(startSeconds)
+print()
 
 num_of_today_reads = 1
 while num_of_today_reads <= 24 * 60:
     file = try_open_file(file_name, "a")
 
     # Wait for 20 seconds past a minute to start
-    site_data_refresh_sync_start_countdown(startSeconds)
+
 
     # Download request and process data
     url = "https://www.santander.pl/klient-indywidualny/karty-platnosci-i-kantor/kantor-santander"
@@ -84,7 +86,7 @@ while num_of_today_reads <= 24 * 60:
         try:
             bs4_request =  bs4.BeautifulSoup(requests.get(f_url).text, "html.parser")
         except:
-            print("\nConnectionError")
+            print("ConnectionError")
             time.sleep(1)
             bs4_request = get_bs4_request(f_url)
 
