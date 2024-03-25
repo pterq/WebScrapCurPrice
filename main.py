@@ -68,6 +68,7 @@ file.close()
 print(("Date;Time;EUR sell;EUR buy;USD sell;USD buy;CHF buy;CHF sell;GBP buy;GBP sell\n"))
 print(f'Starts at: XX:XX:{startSeconds}')
 
+# Wait for 20 seconds past a minute to start
 site_data_refresh_sync_start_countdown(startSeconds)
 print()
 
@@ -75,12 +76,8 @@ num_of_today_reads = 1
 while num_of_today_reads <= 24 * 60:
     file = try_open_file(file_name, "a")
 
-    # Wait for 20 seconds past a minute to start
-
-
     # Download request and process data
     url = "https://www.santander.pl/klient-indywidualny/karty-platnosci-i-kantor/kantor-santander"
-
 
     def get_bs4_request(f_url):
         try:
@@ -158,7 +155,6 @@ while num_of_today_reads <= 24 * 60:
 
         # restart main while loop
         num_of_today_reads = 0
-
 
 
     # wait till its 20 seconds past every minute for changes on the website
