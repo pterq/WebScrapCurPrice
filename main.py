@@ -146,16 +146,18 @@ while num_of_today_reads <= 24 * 60:
 
 
     # Check if there is a new day
-    is_new_day = start_time.year != now_time.year and start_time.month != now_time.month and start_time.day != now_time.day
+    is_new_day = start_time.day != now_time.day
 
     if is_new_day:
-        print(f'>NEW DAY!: {start_time.day}-{start_time.month}-{start_time.year} -> {now_time.day}-{now_time.month}-{now_time.year}')
-        # set current date to new day's date
-        start_time = now_time
-
         # restart main while loop
         num_of_today_reads = 0
 
+        print(f'>NEW DAY!: {start_time.day}-{start_time.month}-{start_time.year} -> {now_time.day}-{now_time.month}-{now_time.year} | {num_of_today_reads}')
+        # set current date to new day's date
+        start_time = now_time
+
+    else:
+        print(f'>Not a new day!: {start_time.day}-{start_time.month}-{start_time.year} -> {now_time.day}-{now_time.month}-{now_time.year} | {num_of_today_reads}')
 
     # wait till its 20 seconds past every minute for changes on the website
     time.sleep(0.5)
