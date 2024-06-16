@@ -133,6 +133,9 @@ while num_of_today_reads <= 24 * 60:
     # Print data in console
     print("-------------------------------------------------------------------------------------------------------------------------")
     print(f'| Record entry: {entry} |')
+    for tekst in entry:
+        print(tekst, end=';')
+    print()
 
     #  print date and time
     print(f'| #: {num_of_today_reads} | {entry[0]} | {entry[1]} |')
