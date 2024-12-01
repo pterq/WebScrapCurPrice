@@ -4,7 +4,7 @@ import time
 import datetime
 import os
 
-file_name = "../Kursy walut.csv"
+file_name = "../Kursy walut - dane.csv"
 startSeconds = 20
 
 
